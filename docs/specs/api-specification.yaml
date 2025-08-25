@@ -1,0 +1,573 @@
+openapi: 3.0.3
+info:
+  title: MemoryLink API
+  description: Local-first personal memory system API for AI agents and developer tools
+  version: 1.0.0
+  contact:
+    name: MemoryLink Team
+    url: https://github.com/internal/memorylink
+  license:
+    name: MIT
+    url: https://opensource.org/licenses/MIT
+
+servers:
+  - url: http://localhost:8080
+    description: Local development server
+  - url: http://127.0.0.1:8080  
+    description: Localhost alternative
+
+tags:
+  - name: health
+    description: Service health and status
+  - name: memory
+    description: Memory storage and retrieval operations
+
+paths:
+  /health:
+    get:
+      tags: [health]
+      summary: Health check endpoint
+      description: Returns service status and basic information
+      responses:
+        '200':
+          description: Service is healthy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HealthResponse'
+              example:
+                status: "ok"
+                version: "1.0.0"
+                timestamp: "2025-08-24T20:11:46.174Z"
+                memory_count: 42
+                vector_index_ready: true
+
+  /add_memory:
+    post:
+      tags: [memory]
+      summary: Add new memory entry
+      description: Store a new memory entry with text content and optional metadata
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/AddMemoryRequest'
+            example:
+              text: "Project kickoff meeting notes - discussed API versioning strategy"
+              tags: ["meeting", "projectX", "api-design"]
+              user: "alice"
+              metadata:
+                source: "vscode"
+                session: "planning_meeting_123"
+      responses:
+        '201':
+          description: Memory entry created successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/AddMemoryResponse'
+              example:
+                id: "mem_12345"
+                status: "success"
+                message: "Memory added successfully"
+                embedding_generated: true
+                created_at: "2025-08-24T20:11:46.174Z"
+        '400':
+          description: Invalid request data
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "INVALID_INPUT"
+                  message: "Text field is required and cannot be empty"
+                  details:
+                    field: "text"
+                    constraint: "required"
+        '422':
+          description: Validation error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /search_memory:
+    get:
+      tags: [memory]
+      summary: Search memory entries
+      description: Search for memory entries using semantic search and metadata filtering
+      parameters:
+        - name: query
+          in: query
+          description: Natural language search query for semantic search
+          required: false
+          schema:
+            type: string
+            example: "API versioning strategy"
+        - name: tags
+          in: query
+          description: Filter by tags (comma-separated)
+          required: false
+          schema:
+            type: string
+            example: "meeting,api-design"
+        - name: user
+          in: query
+          description: Filter by user
+          required: false
+          schema:
+            type: string
+            example: "alice"
+        - name: since
+          in: query
+          description: Filter memories created after this timestamp
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2025-08-01T00:00:00Z"
+        - name: until
+          in: query
+          description: Filter memories created before this timestamp
+          required: false
+          schema:
+            type: string
+            format: date-time
+            example: "2025-08-30T23:59:59Z"
+        - name: limit
+          in: query
+          description: Maximum number of results to return
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 10
+            example: 5
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+            example: 0
+      responses:
+        '200':
+          description: Search completed successfully
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/SearchMemoryResponse'
+              example:
+                results:
+                  - id: "mem_12345"
+                    text: "Project kickoff meeting notes - discussed API versioning strategy"
+                    tags: ["meeting", "projectX", "api-design"]
+                    timestamp: "2025-08-24T20:11:46.174Z"
+                    user: "alice"
+                    relevance_score: 0.92
+                    metadata:
+                      source: "vscode"
+                      session: "planning_meeting_123"
+                    created_at: "2025-08-24T20:11:46.174Z"
+                    updated_at: "2025-08-24T20:11:46.174Z"
+                total_found: 1
+                query_processed: "API versioning strategy"
+                processing_time_ms: 45
+                has_more: false
+        '400':
+          description: Invalid search parameters
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Search service error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /memory/{id}:
+    get:
+      tags: [memory]
+      summary: Get specific memory entry
+      description: Retrieve a specific memory entry by its ID
+      parameters:
+        - name: id
+          in: path
+          description: Memory entry ID
+          required: true
+          schema:
+            type: string
+            example: "mem_12345"
+      responses:
+        '200':
+          description: Memory entry found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/MemoryEntry'
+        '404':
+          description: Memory entry not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+              example:
+                error:
+                  code: "NOT_FOUND"
+                  message: "Memory entry with ID 'mem_12345' not found"
+                  details:
+                    id: "mem_12345"
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+    delete:
+      tags: [memory]
+      summary: Delete specific memory entry
+      description: Remove a memory entry from the vault
+      parameters:
+        - name: id
+          in: path
+          description: Memory entry ID
+          required: true
+          schema:
+            type: string
+            example: "mem_12345"
+      responses:
+        '200':
+          description: Memory entry deleted successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  status:
+                    type: string
+                    example: "deleted"
+                  message:
+                    type: string
+                    example: "Memory entry deleted successfully"
+                  deleted_at:
+                    type: string
+                    format: date-time
+                    example: "2025-08-24T20:11:46.174Z"
+        '404':
+          description: Memory entry not found
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+        '500':
+          description: Internal server error
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/ErrorResponse'
+
+  /memories:
+    get:
+      tags: [memory]
+      summary: List all memory entries
+      description: Get paginated list of all memory entries
+      parameters:
+        - name: limit
+          in: query
+          description: Maximum number of results per page
+          required: false
+          schema:
+            type: integer
+            minimum: 1
+            maximum: 100
+            default: 20
+        - name: offset
+          in: query
+          description: Number of results to skip for pagination
+          required: false
+          schema:
+            type: integer
+            minimum: 0
+            default: 0
+        - name: sort_by
+          in: query
+          description: Sort field
+          required: false
+          schema:
+            type: string
+            enum: ["created_at", "updated_at", "timestamp"]
+            default: "created_at"
+        - name: sort_order
+          in: query
+          description: Sort order
+          required: false
+          schema:
+            type: string
+            enum: ["asc", "desc"]
+            default: "desc"
+      responses:
+        '200':
+          description: Memory list retrieved successfully
+          content:
+            application/json:
+              schema:
+                type: object
+                properties:
+                  memories:
+                    type: array
+                    items:
+                      $ref: '#/components/schemas/MemoryEntry'
+                  total_count:
+                    type: integer
+                    example: 42
+                  has_more:
+                    type: boolean
+                    example: true
+                  pagination:
+                    type: object
+                    properties:
+                      limit:
+                        type: integer
+                        example: 20
+                      offset:
+                        type: integer
+                        example: 0
+                      next_offset:
+                        type: integer
+                        example: 20
+
+components:
+  schemas:
+    HealthResponse:
+      type: object
+      required: [status, version, timestamp]
+      properties:
+        status:
+          type: string
+          enum: ["ok", "degraded", "error"]
+          description: Service health status
+        version:
+          type: string
+          description: API version
+          example: "1.0.0"
+        timestamp:
+          type: string
+          format: date-time
+          description: Current server timestamp
+        memory_count:
+          type: integer
+          description: Total number of memories stored
+          example: 42
+        vector_index_ready:
+          type: boolean
+          description: Whether vector search is available
+          example: true
+        encryption_enabled:
+          type: boolean
+          description: Whether encryption is enabled
+          example: true
+
+    AddMemoryRequest:
+      type: object
+      required: [text]
+      properties:
+        text:
+          type: string
+          minLength: 1
+          maxLength: 10000
+          description: Memory content text
+          example: "Project kickoff meeting notes"
+        tags:
+          type: array
+          items:
+            type: string
+            minLength: 1
+            maxLength: 50
+          description: Optional tags for categorization
+          example: ["meeting", "project"]
+        user:
+          type: string
+          minLength: 1
+          maxLength: 100
+          description: User identifier
+          example: "alice"
+          default: "default"
+        timestamp:
+          type: string
+          format: date-time
+          description: Custom timestamp (defaults to now)
+          example: "2025-08-24T20:11:46.174Z"
+        metadata:
+          type: object
+          description: Additional metadata
+          properties:
+            source:
+              type: string
+              description: Source application or tool
+              example: "vscode"
+            session:
+              type: string
+              description: Session or context identifier
+              example: "planning_meeting_123"
+          additionalProperties: true
+
+    AddMemoryResponse:
+      type: object
+      required: [id, status, message, created_at]
+      properties:
+        id:
+          type: string
+          description: Unique memory identifier
+          example: "mem_12345"
+        status:
+          type: string
+          enum: ["success"]
+          description: Operation status
+        message:
+          type: string
+          description: Success message
+          example: "Memory added successfully"
+        embedding_generated:
+          type: boolean
+          description: Whether vector embedding was generated
+          example: true
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-08-24T20:11:46.174Z"
+
+    MemoryEntry:
+      type: object
+      required: [id, text, timestamp, created_at, updated_at]
+      properties:
+        id:
+          type: string
+          description: Unique memory identifier
+          example: "mem_12345"
+        text:
+          type: string
+          description: Memory content text
+          example: "Project kickoff meeting notes"
+        tags:
+          type: array
+          items:
+            type: string
+          description: Memory tags
+          example: ["meeting", "project"]
+        timestamp:
+          type: string
+          format: date-time
+          description: Memory timestamp
+          example: "2025-08-24T20:11:46.174Z"
+        user:
+          type: string
+          description: User identifier
+          example: "alice"
+        relevance_score:
+          type: number
+          minimum: 0
+          maximum: 1
+          description: Search relevance score (only in search results)
+          example: 0.92
+        metadata:
+          type: object
+          description: Additional metadata
+          additionalProperties: true
+        created_at:
+          type: string
+          format: date-time
+          description: Creation timestamp
+          example: "2025-08-24T20:11:46.174Z"
+        updated_at:
+          type: string
+          format: date-time
+          description: Last update timestamp
+          example: "2025-08-24T20:11:46.174Z"
+
+    SearchMemoryResponse:
+      type: object
+      required: [results, total_found, query_processed, processing_time_ms]
+      properties:
+        results:
+          type: array
+          items:
+            $ref: '#/components/schemas/MemoryEntry'
+          description: Search results
+        total_found:
+          type: integer
+          description: Total number of matching memories
+          example: 1
+        query_processed:
+          type: string
+          description: Processed search query
+          example: "API versioning strategy"
+        processing_time_ms:
+          type: integer
+          description: Query processing time in milliseconds
+          example: 45
+        has_more:
+          type: boolean
+          description: Whether more results are available
+          example: false
+        pagination:
+          type: object
+          properties:
+            limit:
+              type: integer
+              example: 10
+            offset:
+              type: integer
+              example: 0
+            next_offset:
+              type: integer
+              example: 10
+
+    ErrorResponse:
+      type: object
+      required: [error]
+      properties:
+        error:
+          type: object
+          required: [code, message]
+          properties:
+            code:
+              type: string
+              description: Error code
+              example: "INVALID_INPUT"
+            message:
+              type: string
+              description: Human-readable error message
+              example: "Text field is required and cannot be empty"
+            details:
+              type: object
+              description: Additional error details
+              additionalProperties: true
+              example:
+                field: "text"
+                constraint: "required"
+
+  securitySchemes:
+    ApiKeyAuth:
+      type: apiKey
+      in: header
+      name: X-API-Key
+      description: Optional API key for network deployments
+
+security:
+  - {}  # No security required for local deployment
+  - ApiKeyAuth: []  # Optional API key authentication

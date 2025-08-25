@@ -1,0 +1,35 @@
+version: '3.8'
+
+services:
+  memorylink-backend:
+    build: 
+      context: .
+      dockerfile: Dockerfile
+    container_name: memorylink-backend
+    ports:
+      - "8000:8000"
+    environment:
+      - HOST=0.0.0.0
+      - PORT=8000
+      - DEBUG=false
+      - CHROMA_DB_PATH=/app/data/chromadb
+      - ENCRYPTION_KEY=${ENCRYPTION_KEY:-}
+    volumes:
+      - memorylink_data:/app/data
+    networks:
+      - memorylink_network
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+volumes:
+  memorylink_data:
+    driver: local
+
+networks:
+  memorylink_network:
+    driver: bridge

@@ -1,0 +1,27 @@
+# Production Dependencies
+-r base.txt
+
+# Production ASGI server optimizations
+gunicorn==21.2.0
+
+# Production monitoring and observability
+sentry-sdk[fastapi]==1.38.0
+opentelemetry-api==1.21.0
+opentelemetry-sdk==1.21.0
+opentelemetry-instrumentation-fastapi==0.42b0
+
+# Performance optimizations
+orjson==3.9.10
+ujson==5.8.0
+
+# Caching
+redis==5.0.1
+hiredis==2.2.3
+
+# Health checks and metrics
+psutil==5.9.6
+
+# Security enhancements
+cryptography==41.0.7
+passlib[bcrypt]==1.7.4
+python-jose[cryptography]==3.3.0

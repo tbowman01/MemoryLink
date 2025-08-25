@@ -1,0 +1,91 @@
+# MemoryLink Development Docker Compose Configuration
+version: '3.8'
+
+services:
+  memorylink:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ENV: development
+        APP_VERSION: dev-${COMPOSE_PROJECT_NAME:-latest}
+    container_name: memorylink-dev
+    restart: unless-stopped
+    ports:
+      - "8080:8080"
+    volumes:
+      # Application code for development (hot reload)
+      - ./app:/app/app:ro
+      - ./scripts:/app/scripts:ro
+      - ./config:/app/config:ro
+      # Data persistence
+      - memorylink-data:/data
+      - memorylink-logs:/logs
+      # Configuration
+      - ./.env:/app/.env:ro
+    environment:
+      # Application settings
+      - MEMORYLINK_ENV=development
+      - MEMORYLINK_HOST=0.0.0.0
+      - MEMORYLINK_PORT=8080
+      - MEMORYLINK_LOG_LEVEL=DEBUG
+      
+      # Data paths
+      - MEMORYLINK_DATA_PATH=/data
+      - MEMORYLINK_VECTOR_DB_PATH=/data/vector
+      - MEMORYLINK_METADATA_DB_PATH=/data/metadata/memorylink.db
+      
+      # Security settings
+      - MEMORYLINK_ENCRYPTION_ENABLED=true
+      - MEMORYLINK_API_KEY_ENABLED=false
+      
+      # Performance settings
+      - MEMORYLINK_MAX_MEMORY_SIZE=10000
+      - MEMORYLINK_EMBEDDING_BATCH_SIZE=32
+      - MEMORYLINK_SEARCH_TOP_K=10
+      
+      # Development settings
+      - MEMORYLINK_AUTO_RELOAD=true
+      - MEMORYLINK_DEBUG=true
+    networks:
+      - memorylink-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+    depends_on: []
+    
+  # Optional: Redis for caching (can be enabled if needed)
+  # redis:
+  #   image: redis:7-alpine
+  #   container_name: memorylink-redis-dev
+  #   restart: unless-stopped
+  #   ports:
+  #     - "6379:6379"
+  #   volumes:
+  #     - memorylink-redis-data:/data
+  #   networks:
+  #     - memorylink-network
+  #   healthcheck:
+  #     test: ["CMD", "redis-cli", "ping"]
+  #     interval: 30s
+  #     timeout: 10s
+  #     retries: 3
+
+networks:
+  memorylink-network:
+    driver: bridge
+    name: memorylink-dev-network
+
+volumes:
+  memorylink-data:
+    driver: local
+    name: memorylink-dev-data
+  memorylink-logs:
+    driver: local
+    name: memorylink-dev-logs
+  # memorylink-redis-data:
+  #   driver: local
+  #   name: memorylink-dev-redis

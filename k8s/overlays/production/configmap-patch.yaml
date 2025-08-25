@@ -1,0 +1,15 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: memorylink-config
+  namespace: memorylink-prod
+data:
+  MEMORYLINK_ENV: "production"
+  MEMORYLINK_LOG_LEVEL: "INFO"
+  MEMORYLINK_DEBUG: "false"
+  MEMORYLINK_AUTO_RELOAD: "false"
+  MEMORYLINK_MAX_MEMORY_SIZE: "100000"
+  MEMORYLINK_EMBEDDING_BATCH_SIZE: "128"
+  MEMORYLINK_SEARCH_TOP_K: "50"
+  MEMORYLINK_ENABLE_MONITORING: "true"
+  MEMORYLINK_WORKERS: "4"

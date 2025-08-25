@@ -1,0 +1,169 @@
+# MemoryLink Production Docker Compose Configuration
+version: '3.8'
+
+services:
+  memorylink:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        BUILD_ENV: production
+        APP_VERSION: ${MEMORYLINK_VERSION:-latest}
+    container_name: memorylink-prod
+    restart: always
+    ports:
+      - "${MEMORYLINK_HOST_PORT:-8080}:8080"
+    volumes:
+      # Data persistence
+      - memorylink-prod-data:/data
+      - memorylink-prod-logs:/logs
+      - memorylink-prod-backups:/backups
+      # Configuration
+      - ./config/production.env:/app/.env:ro
+      # SSL certificates (if using HTTPS)
+      - ./certs:/app/certs:ro
+    environment:
+      # Application settings
+      - MEMORYLINK_ENV=production
+      - MEMORYLINK_HOST=0.0.0.0
+      - MEMORYLINK_PORT=8080
+      - MEMORYLINK_LOG_LEVEL=${LOG_LEVEL:-INFO}
+      
+      # Data paths
+      - MEMORYLINK_DATA_PATH=/data
+      - MEMORYLINK_VECTOR_DB_PATH=/data/vector
+      - MEMORYLINK_METADATA_DB_PATH=/data/metadata/memorylink.db
+      - MEMORYLINK_BACKUP_PATH=/backups
+      
+      # Security settings
+      - MEMORYLINK_ENCRYPTION_ENABLED=true
+      - MEMORYLINK_ENCRYPTION_KEY=${ENCRYPTION_KEY}
+      - MEMORYLINK_API_KEY_ENABLED=${API_KEY_ENABLED:-false}
+      - MEMORYLINK_API_KEY=${API_KEY:-}
+      
+      # Performance settings
+      - MEMORYLINK_MAX_MEMORY_SIZE=${MAX_MEMORY_SIZE:-50000}
+      - MEMORYLINK_EMBEDDING_BATCH_SIZE=${EMBEDDING_BATCH_SIZE:-64}
+      - MEMORYLINK_SEARCH_TOP_K=${SEARCH_TOP_K:-20}
+      - MEMORYLINK_WORKERS=${WORKERS:-2}
+      
+      # Production optimizations
+      - MEMORYLINK_AUTO_RELOAD=false
+      - MEMORYLINK_DEBUG=false
+      - MEMORYLINK_ENABLE_MONITORING=true
+    networks:
+      - memorylink-prod-network
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8080/api/v1/health"]
+      interval: 60s
+      timeout: 30s
+      retries: 3
+      start_period: 60s
+    deploy:
+      resources:
+        limits:
+          cpus: '${CPU_LIMIT:-2.0}'
+          memory: ${MEMORY_LIMIT:-4G}
+        reservations:
+          cpus: '${CPU_RESERVATION:-0.5}'
+          memory: ${MEMORY_RESERVATION:-1G}
+    logging:
+      driver: "json-file"
+      options:
+        max-size: "10m"
+        max-file: "3"
+    security_opt:
+      - no-new-privileges:true
+    read_only: false
+    tmpfs:
+      - /tmp:noexec,nosuid,size=100m
+    cap_drop:
+      - ALL
+    cap_add:
+      - CHOWN
+      - DAC_OVERRIDE
+      - SETGID
+      - SETUID
+
+  # Production monitoring (optional)
+  prometheus:
+    image: prom/prometheus:latest
+    container_name: memorylink-prometheus
+    restart: unless-stopped
+    ports:
+      - "${PROMETHEUS_PORT:-9090}:9090"
+    volumes:
+      - ./monitoring/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - memorylink-prometheus-data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.console.libraries=/etc/prometheus/console_libraries'
+      - '--web.console.templates=/etc/prometheus/consoles'
+      - '--web.enable-lifecycle'
+    networks:
+      - memorylink-prod-network
+    profiles:
+      - monitoring
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: memorylink-grafana
+    restart: unless-stopped
+    ports:
+      - "${GRAFANA_PORT:-3000}:3000"
+    volumes:
+      - memorylink-grafana-data:/var/lib/grafana
+      - ./monitoring/grafana/dashboards:/etc/grafana/provisioning/dashboards:ro
+      - ./monitoring/grafana/datasources:/etc/grafana/provisioning/datasources:ro
+    environment:
+      - GF_SECURITY_ADMIN_PASSWORD=${GRAFANA_PASSWORD:-admin}
+    networks:
+      - memorylink-prod-network
+    profiles:
+      - monitoring
+
+  # Backup service
+  backup:
+    build:
+      context: ./docker/backup
+      dockerfile: Dockerfile
+    container_name: memorylink-backup
+    restart: unless-stopped
+    volumes:
+      - memorylink-prod-data:/source/data:ro
+      - memorylink-prod-backups:/backups
+    environment:
+      - BACKUP_SCHEDULE=${BACKUP_SCHEDULE:-0 2 * * *}
+      - BACKUP_RETENTION_DAYS=${BACKUP_RETENTION_DAYS:-30}
+      - ENCRYPTION_KEY=${BACKUP_ENCRYPTION_KEY}
+    networks:
+      - memorylink-prod-network
+    profiles:
+      - backup
+
+networks:
+  memorylink-prod-network:
+    driver: bridge
+    name: memorylink-prod-network
+
+volumes:
+  memorylink-prod-data:
+    driver: local
+    name: memorylink-prod-data
+    driver_opts:
+      type: none
+      o: bind
+      device: ${DATA_PATH:-./data}
+  memorylink-prod-logs:
+    driver: local
+    name: memorylink-prod-logs
+  memorylink-prod-backups:
+    driver: local
+    name: memorylink-prod-backups
+  memorylink-prometheus-data:
+    driver: local
+    name: memorylink-prometheus-data
+  memorylink-grafana-data:
+    driver: local
+    name: memorylink-grafana-data

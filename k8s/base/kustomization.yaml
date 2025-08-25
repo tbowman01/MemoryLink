@@ -1,0 +1,31 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+metadata:
+  name: memorylink-base
+  namespace: memorylink
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - configmap.yaml
+  - secret.yaml
+  - persistentvolume.yaml
+  - deployment.yaml
+  - service.yaml
+  - ingress.yaml
+
+commonLabels:
+  app: memorylink
+  version: v1
+  
+commonAnnotations:
+  managed-by: kustomize
+  app.kubernetes.io/name: memorylink
+  app.kubernetes.io/version: v1.0.0
+  
+images:
+  - name: memorylink
+    newTag: latest
+    
+namespace: memorylink

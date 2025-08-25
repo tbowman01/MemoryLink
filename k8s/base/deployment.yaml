@@ -1,0 +1,114 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memorylink-deployment
+  namespace: memorylink
+  labels:
+    app: memorylink
+    component: api
+spec:
+  replicas: 2
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+      maxSurge: 1
+  selector:
+    matchLabels:
+      app: memorylink
+      component: api
+  template:
+    metadata:
+      labels:
+        app: memorylink
+        component: api
+      annotations:
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+    spec:
+      serviceAccountName: memorylink-service-account
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+      containers:
+      - name: memorylink
+        image: memorylink:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8080
+          name: http
+          protocol: TCP
+        env:
+        - name: MEMORYLINK_ENCRYPTION_KEY
+          valueFrom:
+            secretKeyRef:
+              name: memorylink-secrets
+              key: MEMORYLINK_ENCRYPTION_KEY
+        - name: MEMORYLINK_API_KEY
+          valueFrom:
+            secretKeyRef:
+              name: memorylink-secrets
+              key: MEMORYLINK_API_KEY
+        envFrom:
+        - configMapRef:
+            name: memorylink-config
+        volumeMounts:
+        - name: data-storage
+          mountPath: /data
+        - name: log-storage
+          mountPath: /logs
+        - name: tmp-storage
+          mountPath: /tmp
+        resources:
+          requests:
+            memory: "512Mi"
+            cpu: "250m"
+          limits:
+            memory: "2Gi"
+            cpu: "1000m"
+        livenessProbe:
+          httpGet:
+            path: /api/v1/health
+            port: 8080
+          initialDelaySeconds: 30
+          periodSeconds: 30
+          timeoutSeconds: 10
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /api/v1/readiness
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: false
+          capabilities:
+            drop:
+            - ALL
+            add:
+            - CHOWN
+            - DAC_OVERRIDE
+            - SETGID
+            - SETUID
+      volumes:
+      - name: data-storage
+        persistentVolumeClaim:
+          claimName: memorylink-data-pvc
+      - name: log-storage
+        persistentVolumeClaim:
+          claimName: memorylink-logs-pvc
+      - name: tmp-storage
+        emptyDir:
+          sizeLimit: 1Gi
+      nodeSelector:
+        kubernetes.io/os: linux
+      tolerations:
+      - key: "node-role.kubernetes.io/master"
+        operator: "Exists"
+        effect: "NoSchedule"

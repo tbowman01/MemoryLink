@@ -1,0 +1,8 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: memorylink
+  labels:
+    app: memorylink
+    version: v1
+    environment: base

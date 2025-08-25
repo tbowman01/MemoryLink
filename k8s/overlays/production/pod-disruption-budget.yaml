@@ -1,0 +1,15 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: memorylink-pdb
+  namespace: memorylink-prod
+  labels:
+    app: memorylink
+    component: availability
+spec:
+  minAvailable: 2
+  selector:
+    matchLabels:
+      app: memorylink
+      component: api
+      environment: production

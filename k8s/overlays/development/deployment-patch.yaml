@@ -1,0 +1,27 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: memorylink-deployment
+  namespace: memorylink-dev
+spec:
+  replicas: 1
+  template:
+    spec:
+      containers:
+      - name: memorylink
+        resources:
+          requests:
+            memory: "256Mi"
+            cpu: "100m"
+          limits:
+            memory: "1Gi"
+            cpu: "500m"
+        env:
+        - name: MEMORYLINK_ENV
+          value: "development"
+        - name: MEMORYLINK_DEBUG
+          value: "true"
+        - name: MEMORYLINK_LOG_LEVEL
+          value: "DEBUG"
+        - name: MEMORYLINK_AUTO_RELOAD
+          value: "true"

@@ -1,0 +1,40 @@
+# MemoryLink Base Dependencies
+# Core FastAPI and web framework dependencies
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+python-multipart==0.0.6
+httpx==0.25.0
+
+# Data validation and configuration
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+pyyaml==6.0.1
+
+# Vector database and embeddings
+chromadb==0.4.18
+sentence-transformers==2.2.2
+
+# Database and ORM
+sqlalchemy==2.0.23
+
+# Encryption and security
+pycryptodome==3.19.0
+
+# Scientific computing and ML
+numpy==1.24.3
+torch==2.1.0
+transformers==4.35.0
+
+# Async support
+asyncio-mqtt==0.16.1
+aiofiles==23.2.1
+
+# Logging and monitoring
+structlog==23.2.0
+prometheus-client==0.19.0
+
+# Utilities
+click==8.1.7
+rich==13.7.0
+tenacity==8.2.3
